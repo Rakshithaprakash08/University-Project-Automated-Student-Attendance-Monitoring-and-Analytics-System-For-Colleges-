@@ -1,0 +1,39 @@
+﻿{% extends 'base.html' %}
+{% block content %}
+<section class="card">
+    <h1>{{ 'Edit Student' if student else 'Add Student' }}</h1>
+    <form method="post" enctype="multipart/form-data" class="grid-form">
+        <label>Student Code</label>
+        <input name="student_code" value="{{ student['student_code'] if student else '' }}" required>
+
+        <label>Name</label>
+        <input name="name" value="{{ student['name'] if student else '' }}" required>
+
+        <label>Section</label>
+        <input name="section_name" value="{{ student['section_name'] if student else '' }}" required>
+
+        <label>Sub-section</label>
+        <input name="section" value="{{ student['section'] if student else '' }}">
+
+        <label>Unique ID Tag</label>
+        <input name="unique_id" value="{{ student['unique_id'] if student else '' }}">
+
+        <label>Guardian Phone</label>
+        <input name="guardian_phone" value="{{ student['guardian_phone'] if student else '' }}">
+
+        <label>Student Photo (for face recognition)</label>
+        <input type="file" name="photo" accept="image/*">
+
+        <hr>
+        <h3>Create/Update Student Login</h3>
+        <label>Student Username</label>
+        <input name="login_username" value="{{ student_user['username'] if student_user else '' }}" placeholder="Optional">
+
+        <label>Student Password {% if student_user %}(leave blank to keep existing){% endif %}</label>
+        <input type="password" name="login_password" placeholder="Required for first-time student login">
+
+        <button class="btn btn-primary" type="submit">Save Student</button>
+    </form>
+</section>
+{% endblock %}
+

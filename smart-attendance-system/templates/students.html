@@ -1,0 +1,37 @@
+﻿{% extends 'base.html' %}
+{% block content %}
+<section class="card">
+    <div class="row-between">
+        <h1 data-i18n="students">Students</h1>
+        {% if session.get('role') == 'admin' %}
+        <a href="{{ url_for('students.add_student') }}" class="btn btn-primary" data-i18n="add_students">Add Students</a>
+        {% endif %}
+    </div>
+    <table>
+        <tr>
+            <th>Roll No.</th><th>Name</th><th>Section</th><th>Unique ID</th><th>Phone</th>
+            {% if session.get('role') == 'admin' %}
+            <th>Actions</th>
+            {% endif %}
+        </tr>
+        {% for s in students %}
+        <tr>
+            <td>{{ s['student_code'] }}</td>
+            <td>{{ s['name'] }}</td>
+            <td>{{ s['section_name'] }} {{ s['section'] or '' }}</td>
+            <td>{{ s['unique_id'] or '-' }}</td>
+            <td>{{ s['guardian_phone'] or '-' }}</td>
+            {% if session.get('role') == 'admin' %}
+            <td>
+                <a class="btn btn-sm" href="{{ url_for('students.edit_student', student_id=s['id']) }}">Edit</a>
+                <form method="post" action="{{ url_for('students.delete_student', student_id=s['id']) }}" style="display:inline">
+                    <button class="btn btn-sm danger" onclick="return confirm('Delete this student?')">Delete</button>
+                </form>
+            </td>
+            {% endif %}
+        </tr>
+        {% endfor %}
+    </table>
+</section>
+{% endblock %}
+

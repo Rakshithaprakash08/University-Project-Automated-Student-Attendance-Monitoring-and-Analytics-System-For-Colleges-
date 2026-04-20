@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card">
+    <div class="row-between">
+        <h1 data-i18n="view_reports">Attendance Reports</h1>
+        <div>
+            <a class="btn" href="{{ url_for('reports.export_csv', subject=subject) }}">Export CSV</a>
+            <a class="btn" href="{{ url_for('reports.export_pdf', subject=subject) }}">Export PDF</a>
+            {% if session.get('role') == 'admin' %}
+            <form method="post" action="{{ url_for('reports.clear_attendance_data') }}" style="display:inline;" onsubmit="return confirm('Clear all attendance and attendance sync history? This cannot be undone.');">
+                <button class="btn" type="submit">Clear Attendance Data</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <form class="inline-form" method="get">
+        <select name="period">
+            <option value="weekly" {% if period=='weekly' %}selected{% endif %}>Weekly</option>
+            <option value="monthly" {% if period=='monthly' %}selected{% endif %}>Monthly</option>
+        </select>
+        {% if not student_mode %}
+        <select name="section">
+            <option value="">All Sections</option>
+            {% for c in sections %}
+            <option value="{{ c }}" {% if section_name == c %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+        </select>
+        {% endif %}
+        <select name="subject">
+            <option value="">All Subjects</option>
+            {% for s in subjects %}
+            <option value="{{ s }}" {% if subject == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+        </select>
+        <button class="btn btn-primary" type="submit">Apply</button>
+    </form>
+
+    <p>Range: {{ start_date }} to {{ end_date }}</p>
+    <table>
+        <tr>
+            <th>Code</th><th>Name</th><th>Section</th><th>No. of Classes</th><th>Present</th><th>Absent</th><th>%</th>
+        </tr>
+        {% for r in rows %}
+        <tr>
+            <td>{{ r.student_code }}</td>
+            <td>{{ r.name }}</td>
+            <td>{{ r.section_name }}</td>
+            <td>{{ r.no_of_classes }}</td>
+            <td>{{ r.present_sessions }}</td>
+            <td>{{ r.absent_sessions }}</td>
+            <td>{{ r.attendance_percent }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</section>
+{% endblock %}

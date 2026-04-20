@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="hero card">
+    <div>
+        <h1 data-i18n="dashboard_title">Attendance Dashboard</h1>
+    {% if session.get('role') == 'student' and student_profile %}
+    <p><strong>{{ student_profile['name'] }}</strong> ({{ student_profile['student_code'] }}) - Section {{ student_profile['section_name'] }} {{ student_profile['section'] or '' }}</p>
+    {% endif %}
+        <div class="lang-switch">
+            <button onclick="setLanguage('en')">English</button>
+            <button onclick="setLanguage('kn')">Kannada</button>
+        </div>
+    </div>
+    <div class="today">{{ today }}</div>
+</div>
+
+{% if session.get('role') in ['admin', 'teacher'] %}
+<div class="metrics">
+  <div class="metric card"><span data-i18n="total_students">Total Students</span><strong>{{ totals['student_count'] }}</strong></div>
+</div>
+{% endif %}
+
+<div class="quick-actions">
+  {% if session.get('role') in ['teacher', 'student'] %}
+    <a class="action card" href="{{ url_for('attendance.mark_page') }}" data-i18n="mark_attendance">Mark Attendance</a>
+  {% endif %}
+    <a class="action card" href="{{ url_for('reports.reports_home') }}" data-i18n="view_reports">View Reports</a>
+  {% if session.get('role') == 'admin' %}
+    <a class="action card" href="{{ url_for('students.add_student') }}" data-i18n="add_students">Add Students</a>
+    <a class="action card" href="{{ url_for('auth.users') }}">Manage Users</a>
+  {% else %}
+  <a class="action card" href="{{ url_for('reports.reports_home') }}">View Attendance</a>
+  {% endif %}
+</div>
+
+<section class="card">
+  {% if session.get('role') in ['admin', 'teacher'] %}
+  <h2 data-i18n="section_overview">Section Overview</h2>
+  <table>
+    <tr><th>Section</th><th>Students</th></tr>
+    {% for c in sections %}
+    <tr><td>{{ c['section_name'] }}</td><td>{{ c['total'] }}</td></tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  {% if timetable_rows %}
+  <h2>Today's Timetable</h2>
+  <table>
+    <tr><th>Subject</th><th>Start</th><th>End</th></tr>
+    {% for t in timetable_rows %}
+    <tr><td>{{ t['subject'] }}</td><td>{{ t['start_time'] }}</td><td>{{ t['end_time'] }}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  <h2>My Recent Attendance</h2>
+  <table>
+    <tr><th>Date</th><th>Subject</th><th>Status</th><th>Time</th></tr>
+    {% for a in recent_attendance %}
+    <tr><td>{{ a['date'] }}</td><td>{{ a['subject'] }}</td><td>{{ a['status'] }}</td><td>{{ a['timestamp'] }}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+// No dynamic sync counter is shown on dashboard for current roles.
+</script>
+{% endblock %}

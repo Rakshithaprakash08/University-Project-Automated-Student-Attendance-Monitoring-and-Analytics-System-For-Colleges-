@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card auth-card">
+    <h1 data-i18n="login_title">Teacher/Admin Login</h1>
+    <form method="post" class="grid-form">
+        <label data-i18n="username_label">Username</label>
+        <input type="text" name="username" required>
+        <label data-i18n="password_label">Password</label>
+        <input type="password" name="password" required>
+        <button class="btn btn-primary" type="submit" data-i18n="login_btn">Login</button>
+    </form>
+    <p class="hint"><a href="{{ url_for('auth.student_login') }}">Student Login</a></p>
+</section>
+{% endblock %}

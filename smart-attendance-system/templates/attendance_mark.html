@@ -1,0 +1,246 @@
+﻿{% extends 'base.html' %}
+{% block content %}
+<section class="card">
+    <h1 data-i18n="mark_attendance">Mark Attendance</h1>
+    {% if student_mode and student %}
+    <p><strong>{{ student['name'] }}</strong> ({{ student['student_code'] }}) - Section {{ student['section_name'] }} {{ student['section'] or '' }}</p>
+    {% else %}
+    <p>Use manual direct marking to record attendance.</p>
+    {% endif %}
+
+    {% if student_mode and timetable_rows %}
+    <h3>Today's Timetable</h3>
+    <table>
+        <tr><th>Subject</th><th>Start</th><th>End</th></tr>
+        {% for t in timetable_rows %}
+        <tr>
+            <td>{{ t['subject'] }}</td>
+            <td>{{ t['start_time'] }}</td>
+            <td>{{ t['end_time'] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+
+    <div class="inline-form">
+        <label for="subjectSelect"><strong>Subject</strong></label>
+        <select id="subjectSelect" name="subject">
+            {% for subject in subjects %}
+            <option value="{{ subject }}">{{ subject }}</option>
+            {% endfor %}
+            <option value="General">General</option>
+        </select>
+    </div>
+
+    {% if student_mode %}
+    <div id="subjectStatusResult" class="result"></div>
+    {% endif %}
+
+    {% if student_mode %}
+    <div class="mark-grid">
+        <div class="card soft">
+            <h2>Unique ID Attendance</h2>
+            <input id="uniqueIdInput" placeholder="Scan or type Unique ID tag">
+            <button class="btn btn-primary" onclick="submitUniqueId()">Mark via Unique ID</button>
+            <div id="uniqueIdResult" class="result"></div>
+        </div>
+
+        <div class="card soft">
+            <h2>Face Attendance</h2>
+            {% if ai_enabled %}
+            <video id="video" autoplay playsinline></video>
+            <div class="row-gap">
+                <button class="btn" onclick="startCamera()">Start Camera</button>
+                <button class="btn btn-primary" onclick="captureFace()">Capture & Mark</button>
+            </div>
+            <canvas id="faceCanvas" style="display:none"></canvas>
+            <div id="faceResult" class="result"></div>
+            {% else %}
+            <p>AI module not installed. Install optional dependencies to enable face recognition.</p>
+            {% endif %}
+        </div>
+    </div>
+    <p class="muted" style="margin-top:10px;">QR attendance is submitted by scanning the teacher-generated session QR from your phone.</p>
+    {% endif %}
+</section>
+
+{% if student_mode %}
+<section class="card">
+    <h2>My Attendance</h2>
+    <table>
+        <tr><th>Date</th><th>Subject</th><th>Status</th><th>Time</th></tr>
+        {% for a in own_attendance %}
+        <tr>
+            <td>{{ a['date'] }}</td>
+            <td>{{ a['subject'] }}</td>
+            <td>{{ a['status'] }}</td>
+            <td>{{ a['timestamp'] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</section>
+{% else %}
+<section class="card">
+    <h2>QR Session (Teacher/Admin)</h2>
+    <p class="muted">Generate a session QR. Students scan it on their phones and tap Submit Attendance.</p>
+    <div class="row-gap" style="margin-top:10px;">
+        <button class="btn btn-primary" onclick="generateSessionQr()">Generate Session QR</button>
+    </div>
+    <img id="sessionQrImage" alt="Session QR" style="display:none;width:240px;height:240px;margin-top:10px;border:1px solid #d7dfdd;border-radius:8px;padding:6px;background:#fff;">
+    <textarea id="sessionQrToken" readonly style="margin-top:8px;min-height:70px;display:none;"></textarea>
+    <div id="sessionQrResult" class="result"></div>
+</section>
+
+<section class="card">
+    <h2>Manual Override</h2>
+    <form method="post" action="{{ url_for('attendance.manual_mark') }}" class="inline-form">
+        <select id="studentSelect" name="student_id" required></select>
+        <select id="manualSubjectSelect" name="subject"></select>
+        <select name="status">
+            <option value="present">Present</option>
+            <option value="late">Late</option>
+            <option value="absent">Absent</option>
+        </select>
+        <input name="note" placeholder="Optional note">
+        <button class="btn btn-primary" type="submit">Save Manual Entry</button>
+    </form>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+let cameraStarted = false;
+const isStudentMode = {{ 'true' if student_mode else 'false' }};
+
+function currentSubject() {
+    const select = document.getElementById("subjectSelect");
+    return select ? select.value : "General";
+}
+
+function syncManualSubject() {
+    const src = document.getElementById("subjectSelect");
+    const dst = document.getElementById("manualSubjectSelect");
+    if (!src || !dst) return;
+    dst.innerHTML = src.innerHTML;
+    dst.value = src.value;
+}
+
+async function loadStudents() {
+    const res = await fetch("{{ url_for('attendance.api_students') }}");
+    const students = await res.json();
+    const select = document.getElementById("studentSelect");
+    select.innerHTML = students.map(s => `<option value="${s.id}">${s.student_code} - ${s.name} (${s.section_name})</option>`).join("");
+}
+
+async function submitUniqueId() {
+    const tag = document.getElementById("uniqueIdInput").value;
+    const res = await fetch("{{ url_for('attendance.api_mark_unique_id') }}", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({unique_id: tag, subject: currentSubject()})
+    });
+    const data = await res.json();
+    const message = data.message || (data.ok ? "Unique ID recorded." : "Failed");
+    document.getElementById("uniqueIdResult").textContent = message;
+    await refreshSubjectProgress();
+}
+
+async function startCamera() {
+    if (cameraStarted) return;
+    const video = document.getElementById("video");
+    const stream = await navigator.mediaDevices.getUserMedia({video: true});
+    video.srcObject = stream;
+    cameraStarted = true;
+}
+
+async function captureFace() {
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("faceCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const image = canvas.toDataURL("image/jpeg", 0.9);
+
+    const res = await fetch("{{ url_for('attendance.api_mark_face') }}", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({image, subject: currentSubject()})
+    });
+    const data = await res.json();
+    const message = data.message || (data.ok ? "Face recorded." : "Failed");
+    document.getElementById("faceResult").textContent = message;
+    await refreshSubjectProgress();
+}
+
+function renderSubjectProgress(data) {
+    const el = document.getElementById("subjectStatusResult");
+    if (!el) return;
+    const uniqueIdEl = document.getElementById("uniqueIdResult");
+    const faceEl = document.getElementById("faceResult");
+
+    if (!data || !data.ok) {
+        el.textContent = "Unable to load current subject progress.";
+        return;
+    }
+
+    if (!data.found) {
+        el.textContent = `No marks yet for ${data.subject}. Pending: unique_id, face, qr.`;
+        return;
+    }
+
+    if (data.all_methods_completed) {
+        el.textContent = `Completed for ${data.subject}. Present.`;
+        // Keep only one clear status line after completion.
+        if (uniqueIdEl) uniqueIdEl.textContent = "";
+        if (faceEl) faceEl.textContent = "";
+        return;
+    }
+
+    const pending = (data.pending_methods || []).join(", ");
+    el.textContent = `Current progress for ${data.subject}: pending ${pending}.`;
+}
+
+async function refreshSubjectProgress() {
+    if (!isStudentMode) return;
+    const subject = currentSubject();
+    const res = await fetch(`{{ url_for('attendance.api_progress') }}?subject=${encodeURIComponent(subject)}`);
+    const data = await res.json();
+    renderSubjectProgress(data);
+}
+
+async function generateSessionQr() {
+    const res = await fetch("{{ url_for('attendance.api_generate_session_qr') }}", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({subject: currentSubject()})
+    });
+    const data = await res.json();
+    const result = document.getElementById("sessionQrResult");
+    if (!data.ok) {
+        result.textContent = data.message || "Unable to generate session QR";
+        return;
+    }
+
+    const img = document.getElementById("sessionQrImage");
+    const token = document.getElementById("sessionQrToken");
+    img.style.display = "block";
+    token.style.display = "block";
+    img.src = "{{ url_for('attendance.session_qr_png') }}?subject=" + encodeURIComponent(currentSubject()) + "&t=" + Date.now();
+    token.value = data.qr_value || data.token;
+    result.textContent = `Session QR generated for ${data.subject}. Valid for ${data.expires_in} seconds.`;
+}
+
+if (!isStudentMode) {
+    loadStudents();
+    syncManualSubject();
+    document.getElementById("subjectSelect").addEventListener("change", syncManualSubject);
+} else {
+    refreshSubjectProgress();
+    document.getElementById("subjectSelect").addEventListener("change", refreshSubjectProgress);
+    setInterval(refreshSubjectProgress, 5000);
+}
+</script>
+{% endblock %}
+

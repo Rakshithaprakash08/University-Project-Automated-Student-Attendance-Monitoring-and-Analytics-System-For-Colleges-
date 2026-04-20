@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card">
+    <h1>Section Timetable</h1>
+
+    <form method="post" class="grid-form">
+        <label>Section</label>
+        <select name="section_name" required>
+            <option value="">Select Section</option>
+            {% for section in sections %}
+            <option value="{{ section }}">{{ section }}</option>
+            {% endfor %}
+        </select>
+
+        <label>Weekday</label>
+        <select name="weekday" required>
+            {% for value, label in weekday_options %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+        </select>
+
+        <label>Subject</label>
+        <input name="subject" placeholder="DBMS" required>
+
+        <label>Start Time</label>
+        <input type="time" name="start_time" required>
+
+        <label>End Time</label>
+        <input type="time" name="end_time" required>
+
+        <button class="btn btn-primary" type="submit">Add Period</button>
+    </form>
+</section>
+
+<section class="card">
+    <h2>Configured Periods</h2>
+    <table>
+        <tr>
+            <th>Section</th><th>Weekday</th><th>Subject</th><th>Start</th><th>End</th><th>Action</th>
+        </tr>
+        {% for e in entries %}
+        <tr>
+            <td>{{ e['section_name'] }}</td>
+            <td>{{ weekday_map[e['weekday']] }}</td>
+            <td>{{ e['subject'] }}</td>
+            <td>{{ e['start_time'] }}</td>
+            <td>{{ e['end_time'] }}</td>
+            <td>
+                <form method="post" action="{{ url_for('attendance.delete_timetable_entry', entry_id=e['id']) }}" style="display:inline">
+                    <button class="btn btn-sm danger" onclick="return confirm('Delete this period?')">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</section>
+{% endblock %}
